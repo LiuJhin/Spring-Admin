@@ -1,0 +1,28 @@
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/cloudops_api?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
+    username: root
+    password: 123456 # ← 必须是 123456，和你 Docker 设置的一致！
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  security:
+    user:
+      name: admin
+      password: CloudOps@2026
+
+  jpa:
+    hibernate:
+      # ddl-auto: create-drop # ← 第一次用 create-drop 强制建表，成功后再改成 update
+      ddl-auto: update # ← 第一次用 create-drop 强制建表，成功后再改成 update
+    show-sql: true
+
+server:
+  port: 8081
+
+jwt:
+  secret: super-secret-jwt-key-2026-change-in-production
+  access-token-expiration: 900000
+  refresh-token-expiration: 604800000
+
+logging:
+  level:
+    com.cloudops.admin: debug
