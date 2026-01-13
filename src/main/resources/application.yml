@@ -25,4 +25,5 @@ jwt:
 
 logging:
   level:
-    com.cloudops.admin: debug
+    org.example.cloudopsadmin: debug
+    org.springframework.security: debug

@@ -51,6 +51,16 @@ public class AuthController {
         return ApiResponse.success("登录成功", data);
     }
 
+    @PostMapping("/logout")
+    public ApiResponse<Map<String, Object>> logout(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        Map<String, Object> data = new HashMap<>();
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            jwtService.blacklistToken(token);
+        }
+        return ApiResponse.success("退出登录成功", data);
+    }
+
     public static class LoginRequest {
         private String email;
         private String password;

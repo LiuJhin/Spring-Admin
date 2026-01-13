@@ -10,6 +10,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,6 +24,9 @@ public class JwtService {
 
     @Value("${jwt.access-token-expiration:900000}")
     private long accessTokenExpiration;
+
+    private final ConcurrentHashMap<String, Long> blacklistedTokens = new ConcurrentHashMap<>();
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(JwtService.class);
 
     private Key getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
@@ -60,7 +64,20 @@ public class JwtService {
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
+        boolean expired = isTokenExpired(token);
+        boolean blacklisted = isTokenBlacklisted(token);
+        boolean usernameMatch = username != null && userDetails != null && username.equals(userDetails.getUsername());
+        boolean valid = usernameMatch && !expired && !blacklisted;
+        log.debug(
+                "JWT validate. subject={}, userDetailsUsername={}, usernameMatch={}, expired={}, blacklisted={}, valid={}",
+                username,
+                userDetails != null ? userDetails.getUsername() : null,
+                usernameMatch,
+                expired,
+                blacklisted,
+                valid
+        );
+        return valid;
     }
 
     private boolean isTokenExpired(String token) {
@@ -69,5 +86,29 @@ public class JwtService {
 
     private Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
+    }
+
+    public void blacklistToken(String token) {
+        if (token == null || token.isBlank()) {
+            return;
+        }
+        Date expiration = extractExpiration(token);
+        long expiresAt = expiration != null ? expiration.getTime() : (System.currentTimeMillis() + accessTokenExpiration);
+        blacklistedTokens.put(token, expiresAt);
+    }
+
+    public boolean isTokenBlacklisted(String token) {
+        if (token == null || token.isBlank()) {
+            return false;
+        }
+        Long expiresAt = blacklistedTokens.get(token);
+        if (expiresAt == null) {
+            return false;
+        }
+        if (expiresAt <= System.currentTimeMillis()) {
+            blacklistedTokens.remove(token, expiresAt);
+            return false;
+        }
+        return true;
     }
 }
