@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.cloudopsadmin.common.ApiResponse;
 import org.example.cloudopsadmin.entity.Invoice;
 import org.example.cloudopsadmin.entity.InvoiceLineItem;
+import org.example.cloudopsadmin.entity.User;
 import org.example.cloudopsadmin.service.InvoiceService;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
@@ -65,7 +66,9 @@ public class InvoiceController {
     @Operation(summary = "创建发票", description = "创建发票及其行项目，并返回合计信息")
     public ApiResponse<Map<String, Object>> createInvoice(@RequestBody InvoiceService.CreateInvoiceRequest request) {
         try {
-            Invoice saved = invoiceService.createInvoice(request);
+            User operator = (User) org.springframework.security.core.context.SecurityContextHolder.getContext()
+                    .getAuthentication().getPrincipal();
+            Invoice saved = invoiceService.createInvoice(request, operator);
             Map<String, Object> data = toResponse(saved);
             return ApiResponse.success("Invoice created successfully", data);
         } catch (IllegalArgumentException e) {
@@ -84,7 +87,9 @@ public class InvoiceController {
             if (ids == null || ids.isEmpty()) {
                 return ApiResponse.error(400, "ids不能为空");
             }
-            invoiceService.deleteInvoices(Set.copyOf(ids));
+            User operator = (User) org.springframework.security.core.context.SecurityContextHolder.getContext()
+                    .getAuthentication().getPrincipal();
+            invoiceService.deleteInvoices(Set.copyOf(ids), operator);
             return ApiResponse.success("success", null);
         } catch (Exception e) {
             log.error("Delete invoices failed. body={}", body, e);
@@ -97,7 +102,9 @@ public class InvoiceController {
     public ApiResponse<Map<String, Object>> patchInvoice(@PathVariable Long id,
                                                          @RequestBody InvoiceService.UpdateInvoiceRequest request) {
         try {
-            Invoice updated = invoiceService.updateInvoice(id, request);
+            User operator = (User) org.springframework.security.core.context.SecurityContextHolder.getContext()
+                    .getAuthentication().getPrincipal();
+            Invoice updated = invoiceService.updateInvoice(id, request, operator);
             return ApiResponse.success("success", toResponse(updated));
         } catch (IllegalArgumentException e) {
             return ApiResponse.error(404, e.getMessage());

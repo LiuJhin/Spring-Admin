@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.example.cloudopsadmin.common.ApiResponse;
 import org.example.cloudopsadmin.entity.Account;
+import org.example.cloudopsadmin.entity.User;
 import org.example.cloudopsadmin.service.AccountService;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
@@ -147,7 +148,9 @@ public class AccountController {
     @Operation(summary = "Add account", description = "RPC style endpoint to add an account with associations")
     public ApiResponse<Map<String, Object>> addAccount(@RequestBody AccountService.AddAccountRequest request) {
         try {
-            Map<String, Object> data = accountService.addAccount(request);
+            User operator = (User) org.springframework.security.core.context.SecurityContextHolder.getContext()
+                    .getAuthentication().getPrincipal();
+            Map<String, Object> data = accountService.addAccount(request, operator);
             return ApiResponse.success("账号新增成功", data);
         } catch (AccountService.ApiException e) {
             return ApiResponse.error(e.getCode(), e.getMessage());

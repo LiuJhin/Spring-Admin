@@ -7,10 +7,12 @@ import org.example.cloudopsadmin.entity.Account;
 import org.example.cloudopsadmin.entity.Customer;
 import org.example.cloudopsadmin.entity.Email;
 import org.example.cloudopsadmin.entity.Payer;
+import org.example.cloudopsadmin.entity.User;
 import org.example.cloudopsadmin.repository.AccountRepository;
 import org.example.cloudopsadmin.repository.CustomerRepository;
 import org.example.cloudopsadmin.repository.EmailRepository;
 import org.example.cloudopsadmin.repository.PayerRepository;
+import org.example.cloudopsadmin.service.OperationLogService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -51,6 +53,7 @@ public class AccountService {
     private final CustomerRepository customerRepository;
     private final EmailRepository emailRepository;
     private final PasswordEncoder passwordEncoder;
+    private final OperationLogService operationLogService;
 
     @Value("${jwt.secret}")
     private String encryptionSecret;
@@ -191,7 +194,7 @@ public class AccountService {
     }
 
     @Transactional
-    public Map<String, Object> addAccount(AddAccountRequest request) {
+    public Map<String, Object> addAccount(AddAccountRequest request, User operator) {
         requireAccountManagePermission();
 
         String uid = requireText(request.getUid(), "uid");
@@ -322,6 +325,18 @@ public class AccountService {
         }
 
         data.put("created_at", saved.getCreatedAt() != null ? saved.getCreatedAt().toString() : null);
+
+        if (operator != null) {
+            operationLogService.log(
+                    operator.getEmail(),
+                    operator.getName(),
+                    "CREATE",
+                    "account",
+                    saved.getAccountInternalId(),
+                    "新增账号: " + saved.getAccountName()
+            );
+        }
+
         return data;
     }
 

@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.example.cloudopsadmin.common.ApiResponse;
 import org.example.cloudopsadmin.entity.Customer;
+import org.example.cloudopsadmin.entity.User;
 import org.example.cloudopsadmin.service.CustomerService;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
@@ -105,7 +106,9 @@ public class CustomerController {
     @Operation(summary = "Create a new customer", description = "Creates a new customer with multiple UIDs.")
     public ApiResponse<Map<String, Object>> createCustomer(@RequestBody CustomerService.CreateCustomerRequest request) {
         try {
-            Customer savedCustomer = customerService.createCustomer(request);
+            User operator = (User) org.springframework.security.core.context.SecurityContextHolder.getContext()
+                    .getAuthentication().getPrincipal();
+            Customer savedCustomer = customerService.createCustomer(request, operator);
 
             Map<String, Object> data = new HashMap<>();
             data.put("customer_internal_id", savedCustomer.getCustomerInternalId());

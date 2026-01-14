@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.example.cloudopsadmin.common.ApiResponse;
 import org.example.cloudopsadmin.entity.KnowledgeArticle;
+import org.example.cloudopsadmin.entity.User;
 import org.example.cloudopsadmin.service.KnowledgeArticleService;
 import org.springframework.web.bind.annotation.*;
 
@@ -58,7 +59,9 @@ public class KnowledgeArticleController {
     @Operation(summary = "创建知识库文章", description = "创建文章，后端生成ID")
     public ApiResponse<Map<String, Object>> create(@RequestBody KnowledgeArticleService.CreateArticleRequest request) {
         try {
-            KnowledgeArticle saved = knowledgeArticleService.createArticle(request);
+            User operator = (User) org.springframework.security.core.context.SecurityContextHolder.getContext()
+                    .getAuthentication().getPrincipal();
+            KnowledgeArticle saved = knowledgeArticleService.createArticle(request, operator);
             Map<String, Object> data = toResponse(saved);
             return ApiResponse.success("success", data);
         } catch (Exception e) {
@@ -72,7 +75,9 @@ public class KnowledgeArticleController {
     public ApiResponse<Map<String, Object>> update(@PathVariable Long id,
                                                    @RequestBody KnowledgeArticleService.CreateArticleRequest request) {
         try {
-            KnowledgeArticle updated = knowledgeArticleService.updateArticle(id, request);
+            User operator = (User) org.springframework.security.core.context.SecurityContextHolder.getContext()
+                    .getAuthentication().getPrincipal();
+            KnowledgeArticle updated = knowledgeArticleService.updateArticle(id, request, operator);
             return ApiResponse.success("success", toResponse(updated));
         } catch (IllegalArgumentException e) {
             return ApiResponse.error(404, e.getMessage());

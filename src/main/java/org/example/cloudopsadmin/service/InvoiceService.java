@@ -10,8 +10,10 @@ import org.example.cloudopsadmin.common.InvoiceStatus;
 import org.example.cloudopsadmin.entity.Invoice;
 import org.example.cloudopsadmin.entity.InvoiceLineItem;
 import org.example.cloudopsadmin.entity.CustomerMonthlyBill;
+import org.example.cloudopsadmin.entity.User;
 import org.example.cloudopsadmin.repository.CustomerMonthlyBillRepository;
 import org.example.cloudopsadmin.repository.InvoiceRepository;
+import org.example.cloudopsadmin.service.OperationLogService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -32,6 +34,7 @@ public class InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final CustomerMonthlyBillRepository customerMonthlyBillRepository;
+    private final OperationLogService operationLogService;
 
     @Transactional(readOnly = true)
     public Page<Invoice> getInvoiceList(int page, int pageSize, String search, String status, String sortBy, String sortOrder) {
@@ -68,7 +71,7 @@ public class InvoiceService {
     }
 
     @Transactional
-    public void deleteInvoices(Set<Long> ids) {
+    public void deleteInvoices(Set<Long> ids, User operator) {
         if (ids == null || ids.isEmpty()) {
             return;
         }
@@ -82,15 +85,29 @@ public class InvoiceService {
             customerMonthlyBillRepository.save(bill);
         }
         customerMonthlyBillRepository.flush();
-        invoiceRepository.deleteAllById(ids);
+        if (ids != null && !ids.isEmpty()) {
+            if (operator != null) {
+                for (Long id : ids) {
+                    operationLogService.log(
+                            operator.getEmail(),
+                            operator.getName(),
+                            "DELETE",
+                            "invoice",
+                            String.valueOf(id),
+                            "删除发票: " + id
+                    );
+                }
+            }
+            invoiceRepository.deleteAllById(ids);
+        }
     }
 
     @Transactional
-    public Invoice createInvoice(CreateInvoiceRequest request) {
+    public Invoice createInvoice(CreateInvoiceRequest request, User operator) {
         // 1. Validate and fetch the target bill
         if (request.getCustomerMonthlyBillId() == null) {
             // Fallback to simple create if no bill ID provided (legacy behavior)
-             return createSimpleInvoice(request);
+             return createSimpleInvoice(request, operator);
         }
 
         CustomerMonthlyBill targetBill = customerMonthlyBillRepository.findById(request.getCustomerMonthlyBillId())
@@ -201,7 +218,18 @@ public class InvoiceService {
         // 6. Recalculate totals
         recalculateInvoiceTotals(invoice);
 
-        return invoiceRepository.save(invoice);
+        Invoice saved = invoiceRepository.save(invoice);
+        if (operator != null) {
+            operationLogService.log(
+                    operator.getEmail(),
+                    operator.getName(),
+                    "CREATE",
+                    "invoice",
+                    String.valueOf(saved.getId()),
+                    "创建发票: " + saved.getCustomerName()
+            );
+        }
+        return saved;
     }
 
     private void recalculateInvoiceTotals(Invoice invoice) {
@@ -220,7 +248,7 @@ public class InvoiceService {
         invoice.setGrandTotal(round2(subtotalExTax + taxTotal));
     }
 
-    private Invoice createSimpleInvoice(CreateInvoiceRequest request) {
+    private Invoice createSimpleInvoice(CreateInvoiceRequest request, User operator) {
         Invoice invoice = new Invoice();
         String name = request.getCustomerName() != null ? request.getCustomerName().trim() : "";
         invoice.setCustomerName(name);
@@ -272,7 +300,18 @@ public class InvoiceService {
         invoice.setTaxTotal(round2(taxTotal));
         invoice.setGrandTotal(round2(subtotalExTax + taxTotal));
 
-        return invoiceRepository.save(invoice);
+        Invoice saved = invoiceRepository.save(invoice);
+        if (operator != null) {
+            operationLogService.log(
+                    operator.getEmail(),
+                    operator.getName(),
+                    "CREATE",
+                    "invoice",
+                    String.valueOf(saved.getId()),
+                    "创建发票: " + saved.getCustomerName()
+            );
+        }
+        return saved;
     }
 
     private double round2(double v) {
@@ -280,7 +319,7 @@ public class InvoiceService {
     }
 
     @Transactional
-    public Invoice updateInvoice(Long id, UpdateInvoiceRequest request) {
+    public Invoice updateInvoice(Long id, UpdateInvoiceRequest request, User operator) {
         Invoice invoice = getInvoice(id);
         if (request.getCustomerName() != null) {
             invoice.setCustomerName(request.getCustomerName().trim());
@@ -337,11 +376,20 @@ public class InvoiceService {
             invoice.setSubtotalExTax(round2(subtotalExTax));
             invoice.setTaxTotal(round2(taxTotal));
             invoice.setGrandTotal(round2(subtotalExTax + taxTotal));
-        } else {
-            // Recalculate totals if dates or discounts changed not affecting line items? Skip if items unchanged.
         }
 
-        return invoiceRepository.save(invoice);
+        Invoice saved = invoiceRepository.save(invoice);
+        if (operator != null) {
+            operationLogService.log(
+                    operator.getEmail(),
+                    operator.getName(),
+                    "UPDATE",
+                    "invoice",
+                    String.valueOf(saved.getId()),
+                    "更新发票: " + saved.getCustomerName()
+            );
+        }
+        return saved;
     }
 
 

@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import org.example.cloudopsadmin.entity.Customer;
 import org.example.cloudopsadmin.entity.CustomerUid;
 import org.example.cloudopsadmin.entity.Payer;
+import org.example.cloudopsadmin.entity.User;
+import org.example.cloudopsadmin.service.OperationLogService;
 import org.example.cloudopsadmin.repository.CustomerRepository;
 import org.example.cloudopsadmin.repository.PayerRepository;
 import org.springframework.stereotype.Service;
@@ -32,6 +34,7 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final PayerRepository payerRepository;
+    private final OperationLogService operationLogService;
 
     @Transactional(readOnly = true)
     public Page<Customer> getCustomerList(int page, int pageSize, String search, String status, String label, String sortBy, String sortOrder) {
@@ -67,7 +70,7 @@ public class CustomerService {
     }
 
     @Transactional
-    public Customer createCustomer(CreateCustomerRequest request) {
+    public Customer createCustomer(CreateCustomerRequest request, User operator) {
         String customerName = request.getCustomerName();
         if (!StringUtils.hasText(customerName)) {
             throw new IllegalArgumentException("customer_name 必填");
@@ -145,7 +148,18 @@ public class CustomerService {
             customer.setUids(customerUids);
         }
 
-        return customerRepository.save(customer);
+        Customer saved = customerRepository.save(customer);
+        if (operator != null) {
+            operationLogService.log(
+                    operator.getEmail(),
+                    operator.getName(),
+                    "CREATE",
+                    "customer",
+                    saved.getCustomerInternalId(),
+                    "创建客户: " + saved.getCustomerName()
+            );
+        }
+        return saved;
     }
 
     private synchronized String generateCustomerInternalId() {

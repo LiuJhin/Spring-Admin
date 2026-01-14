@@ -5,6 +5,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.example.cloudopsadmin.entity.KnowledgeArticle;
+import org.example.cloudopsadmin.entity.User;
+import org.example.cloudopsadmin.service.OperationLogService;
 import org.example.cloudopsadmin.repository.KnowledgeArticleRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,9 +29,10 @@ import java.util.stream.Collectors;
 public class KnowledgeArticleService {
 
     private final KnowledgeArticleRepository knowledgeArticleRepository;
+    private final OperationLogService operationLogService;
 
     @Transactional
-    public KnowledgeArticle createArticle(CreateArticleRequest request) {
+    public KnowledgeArticle createArticle(CreateArticleRequest request, User operator) {
         KnowledgeArticle article = new KnowledgeArticle();
         article.setTitle(request.getTitle());
         article.setAuthor(request.getAuthor());
@@ -37,7 +40,18 @@ public class KnowledgeArticleService {
         article.setCategories(splitCsv(request.getCategories()));
         article.setTags(splitCsv(request.getTags()));
         article.setKeywords(splitCsv(request.getKeywords()));
-        return knowledgeArticleRepository.save(article);
+        KnowledgeArticle saved = knowledgeArticleRepository.save(article);
+        if (operator != null) {
+            operationLogService.log(
+                    operator.getEmail(),
+                    operator.getName(),
+                    "CREATE",
+                    "knowledge_article",
+                    String.valueOf(saved.getId()),
+                    "创建知识库文章: " + saved.getTitle()
+            );
+        }
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -47,7 +61,7 @@ public class KnowledgeArticleService {
     }
 
     @Transactional
-    public KnowledgeArticle updateArticle(Long id, CreateArticleRequest request) {
+    public KnowledgeArticle updateArticle(Long id, CreateArticleRequest request, User operator) {
         KnowledgeArticle article = knowledgeArticleRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Article not found"));
         article.setTitle(request.getTitle());
@@ -56,7 +70,18 @@ public class KnowledgeArticleService {
         article.setCategories(splitCsv(request.getCategories()));
         article.setTags(splitCsv(request.getTags()));
         article.setKeywords(splitCsv(request.getKeywords()));
-        return knowledgeArticleRepository.save(article);
+        KnowledgeArticle saved = knowledgeArticleRepository.save(article);
+        if (operator != null) {
+            operationLogService.log(
+                    operator.getEmail(),
+                    operator.getName(),
+                    "UPDATE",
+                    "knowledge_article",
+                    String.valueOf(saved.getId()),
+                    "编辑知识库文章: " + saved.getTitle()
+            );
+        }
+        return saved;
     }
 
     @Transactional(readOnly = true)
