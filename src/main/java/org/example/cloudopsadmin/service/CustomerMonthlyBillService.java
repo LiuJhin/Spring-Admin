@@ -88,6 +88,8 @@ public class CustomerMonthlyBillService {
             bill.setCostDiscountPercentage(account.getCostDiscount());
             bill.setAccount(account);
             bill.setCustomer(customer);
+            bill.setIsInvoiced(false);
+            bill.setInvoiceStatus(org.example.cloudopsadmin.common.InvoiceStatus.DRAFT);
             customerMonthlyBillRepository.save(bill);
         }
     }
@@ -100,6 +102,33 @@ public class CustomerMonthlyBillService {
                 cb.equal(root.get("month"), prevMonth),
                 cb.equal(root.get("linkedAccountUid"), uid)
         ));
+    }
+
+    public List<CustomerMonthlyBill> listBillsByFilters(
+            String month,
+            String customerName,
+            String linkedAccountUid,
+            String cloudVendor
+    ) {
+        String targetMonth = StringUtils.hasText(month) ? month.trim() : DateTimeFormatter.ofPattern("yyyy-MM").format(LocalDate.now());
+        ensureMonthRecords(targetMonth);
+        Specification<CustomerMonthlyBill> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (StringUtils.hasText(targetMonth)) {
+                predicates.add(cb.equal(root.get("month"), targetMonth));
+            }
+            if (StringUtils.hasText(customerName)) {
+                predicates.add(cb.like(root.get("customerName"), "%" + customerName.trim() + "%"));
+            }
+            if (StringUtils.hasText(linkedAccountUid)) {
+                predicates.add(cb.equal(root.get("linkedAccountUid"), linkedAccountUid.trim()));
+            }
+            if (StringUtils.hasText(cloudVendor)) {
+                predicates.add(cb.equal(root.get("cloudVendor"), cloudVendor.trim()));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        return customerMonthlyBillRepository.findAll(spec);
     }
 
     public CustomerMonthlyBill updateBill(Long id, Double totalBill, Double undiscountedBill, Double customerPayableBill, Double supplierPayableBill, Double profit) {

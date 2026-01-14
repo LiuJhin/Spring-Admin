@@ -3,6 +3,7 @@ package org.example.cloudopsadmin.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
+import org.example.cloudopsadmin.common.InvoiceStatus;
 
 import java.time.LocalDateTime;
 
@@ -53,6 +54,16 @@ public class CustomerMonthlyBill {
 
     @Column(name = "profit")
     private Double profit;
+
+    @Column(name = "is_invoiced")
+    private Boolean isInvoiced;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "invoice_status")
+    private InvoiceStatus invoiceStatus;
+
+    @Column(name = "invoice_id")
+    private Long invoiceId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id_fk")
