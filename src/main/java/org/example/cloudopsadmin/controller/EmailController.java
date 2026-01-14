@@ -45,7 +45,7 @@ public class EmailController {
             map.put("status", email.getStatus());
             map.put("labels", email.getLabels());
             map.put("remarks", email.getRemarks());
-            map.put("created_at", email.getCreatedAt() != null ? email.getCreatedAt().toString() : null);
+            map.put("created_at", email.getCreatedAt());
             
             // Parent Email Info
             if (email.getParentEmail() != null) {
@@ -94,7 +94,7 @@ public class EmailController {
             data.put("source", savedEmail.getSource());
             data.put("category", savedEmail.getCategory());
             data.put("status", savedEmail.getStatus());
-            data.put("created_at", savedEmail.getCreatedAt() != null ? savedEmail.getCreatedAt().toString() : null);
+            data.put("created_at", savedEmail.getCreatedAt());
             
             if (savedEmail.getParentEmail() != null) {
                 data.put("parent_email_id", savedEmail.getParentEmail().getEmailInternalId());

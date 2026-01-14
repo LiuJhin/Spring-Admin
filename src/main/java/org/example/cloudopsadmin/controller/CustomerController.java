@@ -43,10 +43,10 @@ public class CustomerController {
             map.put("email", customer.getEmail());
             map.put("status", customer.getStatus());
             map.put("company", customer.getCompany());
-            map.put("delivery_time", customer.getDeliveryTime() != null ? customer.getDeliveryTime().toString() : null);
+            map.put("delivery_time", customer.getDeliveryTime());
             map.put("labels", customer.getLabels());
             map.put("remarks", customer.getRemarks());
-            map.put("created_at", customer.getCreatedAt() != null ? customer.getCreatedAt().toString() : null);
+            map.put("created_at", customer.getCreatedAt());
             map.put("products_used", customer.getProductsUsed());
             map.put("permissions", customer.getPermissions());
             map.put("original_billing_percentage", customer.getOriginalBillingPercentage());
@@ -112,7 +112,7 @@ public class CustomerController {
             data.put("customer_name", savedCustomer.getCustomerName());
             data.put("email", savedCustomer.getEmail());
             data.put("status", savedCustomer.getStatus());
-            data.put("created_at", savedCustomer.getCreatedAt() != null ? savedCustomer.getCreatedAt().toString() : null);
+            data.put("created_at", savedCustomer.getCreatedAt());
 
             if (savedCustomer.getPayer() != null) {
                 data.put("payer_id", savedCustomer.getPayer().getPayerInternalId()); // Return internal ID or business ID as preferred

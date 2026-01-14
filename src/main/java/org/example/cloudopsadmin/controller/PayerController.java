@@ -47,7 +47,7 @@ public class PayerController {
             map.put("signin_url", payer.getSigninUrl());
             map.put("iam_username", payer.getIamUsername());
             map.put("remarks", payer.getRemarks());
-            map.put("created_at", payer.getCreatedAt() != null ? payer.getCreatedAt().toString() : null);
+            map.put("created_at", payer.getCreatedAt());
             
             List<Map<String, Object>> accounts = payer.getAccounts().stream().map(acc -> {
                 Map<String, Object> accMap = new HashMap<>();
@@ -95,7 +95,7 @@ public class PayerController {
             data.put("iam_username", savedPayer.getIamUsername());
             data.put("contact_email", savedPayer.getContactEmail());
             data.put("remarks", savedPayer.getRemarks());
-            data.put("created_at", savedPayer.getCreatedAt().toString());
+            data.put("created_at", savedPayer.getCreatedAt());
 
             return ApiResponse.success("Payer 创建成功", data);
         } catch (IllegalArgumentException e) {

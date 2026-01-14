@@ -44,7 +44,7 @@ public class AccountController {
             map.put("account_type", account.getAccountType());
             map.put("account_source", account.getAccountSource());
             map.put("is_submitted", account.getIsSubmitted());
-            map.put("created_at", account.getCreatedAt() != null ? account.getCreatedAt().toString() : null);
+            map.put("created_at", account.getCreatedAt());
             map.put("labels", account.getLabels());
 
             if (account.getPayer() != null) {
@@ -96,7 +96,7 @@ public class AccountController {
             map.put("account_source", account.getAccountSource());
             map.put("is_submitted", account.getIsSubmitted());
             map.put("is_monitored_sp", account.getIsMonitoredSp());
-            map.put("created_at", account.getCreatedAt() != null ? account.getCreatedAt().toString() : null);
+            map.put("created_at", account.getCreatedAt());
             map.put("labels", account.getLabels());
 
             if (account.getPayer() != null) {

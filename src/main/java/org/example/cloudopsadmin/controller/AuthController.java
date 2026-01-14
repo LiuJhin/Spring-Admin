@@ -42,7 +42,7 @@ public class AuthController {
         userData.put("role", user.getRoles().isEmpty() ? "user" : user.getRoles().get(0).getName().toLowerCase());
         userData.put("status", user.getStatus().toString().toLowerCase());
         userData.put("avatar", user.getAvatar());
-        userData.put("createdAt", user.getCreatedAt() != null ? user.getCreatedAt().toString() : null);
+        userData.put("createdAt", user.getCreatedAt());
 
         Map<String, Object> data = new HashMap<>();
         data.put("token", token);

@@ -12,6 +12,15 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.databind.Module;
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.ZoneId;
 
 @Configuration
 @RequiredArgsConstructor
@@ -40,5 +49,25 @@ public class ApplicationConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public Module epochTimeModule() {
+        JavaTimeModule module = new JavaTimeModule();
+        module.addSerializer(LocalDateTime.class, new JsonSerializer<LocalDateTime>() {
+            @Override
+            public void serialize(LocalDateTime value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
+                long epochMillis = value.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+                gen.writeNumber(epochMillis);
+            }
+        });
+        module.addSerializer(LocalDate.class, new JsonSerializer<LocalDate>() {
+            @Override
+            public void serialize(LocalDate value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
+                long epochMillis = value.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+                gen.writeNumber(epochMillis);
+            }
+        });
+        return module;
     }
 }

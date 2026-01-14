@@ -117,8 +117,8 @@ public class InvoiceController {
         Map<String, Object> map = new HashMap<>();
         map.put("id", invoice.getId());
         map.put("customer_name", invoice.getCustomerName());
-        map.put("invoice_date", invoice.getInvoiceDate() != null ? invoice.getInvoiceDate().toString() : null);
-        map.put("due_date", invoice.getDueDate() != null ? invoice.getDueDate().toString() : null);
+        map.put("invoice_date", invoice.getInvoiceDate());
+        map.put("due_date", invoice.getDueDate());
         map.put("currency", invoice.getCurrency());
         map.put("tax_number", invoice.getTaxNumber());
         map.put("payment_reference", invoice.getPaymentReference());
@@ -132,7 +132,7 @@ public class InvoiceController {
         map.put("subtotal_ex_tax", invoice.getSubtotalExTax());
         map.put("tax_total", invoice.getTaxTotal());
         map.put("grand_total", invoice.getGrandTotal());
-        map.put("created_at", invoice.getCreatedAt() != null ? invoice.getCreatedAt().toString() : null);
+        map.put("created_at", invoice.getCreatedAt());
         return map;
     }
 
