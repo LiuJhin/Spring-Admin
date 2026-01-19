@@ -131,6 +131,13 @@ public class CustomerMonthlyBillService {
         return customerMonthlyBillRepository.findAll(spec);
     }
 
+    public List<CustomerMonthlyBill> listBillsByYear(int year) {
+        String yearPrefix = String.valueOf(year) + "-%";
+        Specification<CustomerMonthlyBill> spec = (root, query, cb) ->
+                cb.like(root.get("month"), yearPrefix);
+        return customerMonthlyBillRepository.findAll(spec);
+    }
+
     public CustomerMonthlyBill updateBill(Long id, Double totalBill, Double undiscountedBill, Double customerPayableBill, Double supplierPayableBill, Double profit) {
         CustomerMonthlyBill bill = customerMonthlyBillRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Bill not found with id: " + id));
