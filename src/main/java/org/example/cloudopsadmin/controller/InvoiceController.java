@@ -114,6 +114,39 @@ public class InvoiceController {
         }
     }
 
+    @PutMapping("/{id}")
+    @Operation(summary = "更新发票", description = "全量更新发票字段及行项目")
+    public ApiResponse<Map<String, Object>> putInvoice(@PathVariable Long id,
+                                                       @RequestBody InvoiceService.UpdateInvoiceRequest request) {
+        try {
+            User operator = (User) org.springframework.security.core.context.SecurityContextHolder.getContext()
+                    .getAuthentication().getPrincipal();
+            Invoice updated = invoiceService.updateInvoice(id, request, operator);
+            return ApiResponse.success("success", toResponse(updated));
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.error(404, e.getMessage());
+        } catch (Exception e) {
+            log.error("Put invoice failed", e);
+            return ApiResponse.error(500, "Internal Server Error: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/{id}/post")
+    @Operation(summary = "过账发票", description = "将发票从草稿状态变为已过账，并生成付款参考号")
+    public ApiResponse<Map<String, Object>> postInvoice(@PathVariable Long id) {
+        try {
+            User operator = (User) org.springframework.security.core.context.SecurityContextHolder.getContext()
+                    .getAuthentication().getPrincipal();
+            Invoice posted = invoiceService.postInvoice(id, operator);
+            return ApiResponse.success("success", toResponse(posted));
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.error(404, e.getMessage());
+        } catch (Exception e) {
+            log.error("Post invoice failed", e);
+            return ApiResponse.error(500, "Internal Server Error: " + e.getMessage());
+        }
+    }
+
     @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
     public ApiResponse<Object> handleHttpMessageNotReadableException(org.springframework.http.converter.HttpMessageNotReadableException e) {
         log.error("JSON parse error", e);

@@ -44,7 +44,7 @@ public class Invoice {
     @Column(name = "activity")
     private List<String> activities = new ArrayList<>();
 
-    @Column(name = "terms")
+    @Column(name = "terms", length = 2048)
     private String terms;
 
     @Enumerated(EnumType.STRING)
@@ -67,4 +67,3 @@ public class Invoice {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 }
-

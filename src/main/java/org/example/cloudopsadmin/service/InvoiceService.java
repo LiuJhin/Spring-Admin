@@ -27,6 +27,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -316,6 +317,67 @@ public class InvoiceService {
 
     private double round2(double v) {
         return Math.round(v * 100.0) / 100.0;
+    }
+
+    private synchronized String generateInvoiceNumber(LocalDate invoiceDate) {
+        LocalDate date = invoiceDate != null ? invoiceDate : LocalDate.now();
+        String year = String.valueOf(date.getYear());
+        String prefix = "INV/" + year + "/";
+        String pattern = prefix + "%";
+        Optional<String> last = invoiceRepository.findLastPaymentReference(pattern);
+        int next = 1;
+        if (last.isPresent()) {
+            String ref = last.get();
+            String suffix = ref.substring(prefix.length());
+            try {
+                next = Integer.parseInt(suffix) + 1;
+            } catch (NumberFormatException ignored) {
+                next = 1;
+            }
+        }
+        String seq = String.format("%03d", next);
+        return prefix + seq;
+    }
+
+    @Transactional
+    public Invoice postInvoice(Long id, User operator) {
+        Invoice invoice = getInvoice(id);
+        if (invoice.getStatus() == InvoiceStatus.POSTED
+                || invoice.getStatus() == InvoiceStatus.SENT
+                || invoice.getStatus() == InvoiceStatus.PAID
+                || invoice.getStatus() == InvoiceStatus.OVERDUE) {
+            return invoice;
+        }
+
+        if (!StringUtils.hasText(invoice.getPaymentReference())) {
+            String number = generateInvoiceNumber(invoice.getInvoiceDate());
+            invoice.setPaymentReference(number);
+        }
+
+        invoice.setStatus(InvoiceStatus.POSTED);
+
+        List<CustomerMonthlyBill> relatedBills = customerMonthlyBillRepository.findAll((root, query, cb) ->
+                cb.equal(root.get("invoiceId"), id)
+        );
+        for (CustomerMonthlyBill bill : relatedBills) {
+            bill.setIsInvoiced(true);
+            bill.setInvoiceStatus(InvoiceStatus.POSTED);
+            customerMonthlyBillRepository.save(bill);
+        }
+        customerMonthlyBillRepository.flush();
+
+        Invoice saved = invoiceRepository.save(invoice);
+        if (operator != null) {
+            operationLogService.log(
+                    operator.getEmail(),
+                    operator.getName(),
+                    "POSTED",
+                    "invoice",
+                    String.valueOf(saved.getId()),
+                    "过账发票: " + saved.getCustomerName()
+            );
+        }
+        return saved;
     }
 
     @Transactional

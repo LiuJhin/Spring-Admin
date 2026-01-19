@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.example.cloudopsadmin.common.ApiResponse;
 import org.example.cloudopsadmin.entity.Customer;
+import org.example.cloudopsadmin.entity.Account;
 import org.example.cloudopsadmin.entity.User;
 import org.example.cloudopsadmin.service.CustomerService;
 import org.springframework.data.domain.Page;
@@ -52,13 +53,22 @@ public class CustomerController {
             map.put("permissions", customer.getPermissions());
             map.put("original_billing_percentage", customer.getOriginalBillingPercentage());
             
-            // Payer Info
-            if (customer.getPayer() != null) {
-                 Map<String, Object> payer = new HashMap<>();
-                 payer.put("payer_id", customer.getPayer().getPayerId());
-                 payer.put("payer_internal_id", customer.getPayer().getPayerInternalId());
-                 payer.put("payer_name", customer.getPayer().getPayerName());
-                 map.put("payer", payer);
+            // Payer Info (prefer Customer.payer, fallback to first Account.payer)
+            org.example.cloudopsadmin.entity.Payer payerEntity = customer.getPayer();
+            if (payerEntity == null && customer.getAccounts() != null) {
+                for (Account account : customer.getAccounts()) {
+                    if (account != null && account.getPayer() != null) {
+                        payerEntity = account.getPayer();
+                        break;
+                    }
+                }
+            }
+            if (payerEntity != null) {
+                Map<String, Object> payer = new HashMap<>();
+                payer.put("payer_id", payerEntity.getPayerInternalId());
+                payer.put("payer_internal_id", payerEntity.getPayerInternalId());
+                payer.put("payer_name", payerEntity.getPayerName());
+                map.put("payer", payer);
             }
             
             // UIDs Info
