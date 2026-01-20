@@ -30,4 +30,11 @@ public class AnalysisControllerTest {
         mockMvc.perform(get("/api/v1/analysis/yearly"))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    @WithMockUser
+    public void testGetQuarterlyAnalysis() throws Exception {
+        mockMvc.perform(get("/api/v1/analysis/quarterly"))
+                .andExpect(status().isOk());
+    }
 }

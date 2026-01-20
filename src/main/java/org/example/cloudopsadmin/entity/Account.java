@@ -37,6 +37,9 @@ public class Account {
     @Column(name = "account_type", nullable = false)
     private String accountType;
 
+    @Column(name = "account_category")
+    private String accountCategory;
+
     @Column(name = "mfa_status")
     private String mfaStatus;
 

@@ -147,6 +147,7 @@ public class AccountService {
         data.put("monitor_url", account.getMonitorUrl());
         data.put("account_name", account.getAccountName());
         data.put("account_type", account.getAccountType());
+        data.put("account_category", account.getAccountCategory());
         data.put("mfa_status", account.getMfaStatus());
         data.put("account_source", account.getAccountSource());
         data.put("account_attribution", account.getAccountAttribution());
@@ -255,6 +256,7 @@ public class AccountService {
         account.setMonitorUrl(monitorUrl);
         account.setAccountName(accountName);
         account.setAccountType(accountType);
+        account.setAccountCategory(request.getAccountCategory());
         account.setMfaStatus(request.getMfaStatus());
         account.setAccountSource(accountSource);
         account.setAccountAttribution(accountAttribution);
@@ -290,6 +292,7 @@ public class AccountService {
         data.put("uid", saved.getUid());
         data.put("account_name", saved.getAccountName());
         data.put("account_type", saved.getAccountType());
+        data.put("account_category", saved.getAccountCategory());
         data.put("mfa_status", saved.getMfaStatus());
         data.put("account_source", saved.getAccountSource());
         data.put("account_attribution", saved.getAccountAttribution());
@@ -514,6 +517,7 @@ public class AccountService {
         private String monitor_url;
         private String account_name;
         private String account_type;
+        private String account_category;
         private String mfa_status;
         private String account_source;
         private String account_attribution;
@@ -537,6 +541,7 @@ public class AccountService {
         public String getMonitorUrl() { return monitor_url; }
         public String getAccountName() { return account_name; }
         public String getAccountType() { return account_type; }
+        public String getAccountCategory() { return account_category; }
         public String getMfaStatus() { return mfa_status; }
         public String getAccountSource() { return account_source; }
         public String getAccountAttribution() { return account_attribution; }

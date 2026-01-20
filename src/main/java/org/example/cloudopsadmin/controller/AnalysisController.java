@@ -289,6 +289,104 @@ public class AnalysisController {
         return ApiResponse.success("success", response);
     }
 
+    @GetMapping("/quarterly")
+    @Operation(summary = "Get quarterly business analysis", description = "Get quarterly analysis data including revenue, cost, profit by quarter")
+    public ApiResponse<Map<String, Object>> getQuarterlyAnalysis(
+            @RequestParam(required = false) Integer year
+    ) {
+        int targetYear = year != null ? year : LocalDate.now().getYear();
+        List<CustomerMonthlyBill> bills = customerMonthlyBillService.listBillsByYear(targetYear);
+
+        // Group by Quarter
+        Map<String, List<CustomerMonthlyBill>> billsByQuarter = new HashMap<>();
+        billsByQuarter.put("Q1", new ArrayList<>());
+        billsByQuarter.put("Q2", new ArrayList<>());
+        billsByQuarter.put("Q3", new ArrayList<>());
+        billsByQuarter.put("Q4", new ArrayList<>());
+
+        for (CustomerMonthlyBill bill : bills) {
+            String q = getQuarter(bill.getMonth());
+            if (q != null) {
+                billsByQuarter.get(q).add(bill);
+            }
+        }
+
+        List<Map<String, Object>> quartersData = new ArrayList<>();
+        double totalRevenueYear = 0;
+        double totalCostYear = 0;
+        double totalProfitYear = 0;
+
+        String[] quarters = {"Q1", "Q2", "Q3", "Q4"};
+        for (String q : quarters) {
+            List<CustomerMonthlyBill> qBills = billsByQuarter.get(q);
+            double qRevenue = 0;
+            double qCost = 0;
+            double qProfit = 0;
+
+            // Vendor breakdown for this quarter
+            Map<String, Double> vendorRevenue = new HashMap<>();
+            
+            for (CustomerMonthlyBill bill : qBills) {
+                Financials f = calculateFinancials(bill);
+                qRevenue += f.revenue;
+                qCost += f.cost;
+                qProfit += f.profit;
+
+                if (bill.getCloudVendor() != null) {
+                    vendorRevenue.merge(bill.getCloudVendor(), f.revenue, Double::sum);
+                }
+            }
+
+            totalRevenueYear += qRevenue;
+            totalCostYear += qCost;
+            totalProfitYear += qProfit;
+
+            Map<String, Object> qData = new HashMap<>();
+            qData.put("quarter", q);
+            qData.put("revenue", round2(qRevenue));
+            qData.put("cost", round2(qCost));
+            qData.put("profit", round2(qProfit));
+            double margin = qRevenue > 0 ? (qProfit / qRevenue) * 100 : 0;
+            qData.put("margin", round2(margin) + "%");
+
+            // Vendor details
+            List<Map<String, Object>> vendorDetails = new ArrayList<>();
+            for (Map.Entry<String, Double> entry : vendorRevenue.entrySet()) {
+                Map<String, Object> v = new HashMap<>();
+                v.put("cloud_vendor", entry.getKey());
+                v.put("revenue", round2(entry.getValue()));
+                vendorDetails.add(v);
+            }
+            qData.put("vendor_details", vendorDetails);
+
+            quartersData.add(qData);
+        }
+
+        Map<String, Object> overview = new HashMap<>();
+        overview.put("year", targetYear);
+        overview.put("total_revenue", round2(totalRevenueYear));
+        overview.put("total_cost", round2(totalCostYear));
+        overview.put("total_profit", round2(totalProfitYear));
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("overview", overview);
+        response.put("quarters", quartersData);
+
+        return ApiResponse.success("success", response);
+    }
+
+    private String getQuarter(String month) {
+        if (month == null || month.length() < 7) return null;
+        String m = month.substring(5, 7);
+        switch (m) {
+            case "01": case "02": case "03": return "Q1";
+            case "04": case "05": case "06": return "Q2";
+            case "07": case "08": case "09": return "Q3";
+            case "10": case "11": case "12": return "Q4";
+            default: return null;
+        }
+    }
+
     private Financials calculateFinancials(CustomerMonthlyBill bill) {
         Double originalPct = bill.getOriginalBillingPercentage();
         Double undiscounted = bill.getUndiscountedBill();

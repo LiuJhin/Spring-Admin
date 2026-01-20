@@ -43,6 +43,7 @@ public class AccountController {
             map.put("uid", account.getUid());
             map.put("account_name", account.getAccountName());
             map.put("account_type", account.getAccountType());
+            map.put("account_category", account.getAccountCategory());
             map.put("account_source", account.getAccountSource());
             map.put("is_submitted", account.getIsSubmitted());
             map.put("created_at", account.getCreatedAt());
@@ -94,6 +95,7 @@ public class AccountController {
             map.put("uid", account.getUid());
             map.put("account_name", account.getAccountName());
             map.put("account_type", account.getAccountType());
+            map.put("account_category", account.getAccountCategory());
             map.put("account_source", account.getAccountSource());
             map.put("is_submitted", account.getIsSubmitted());
             map.put("is_monitored_sp", account.getIsMonitoredSp());
