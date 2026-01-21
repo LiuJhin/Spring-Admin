@@ -4,7 +4,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.example.cloudopsadmin.common.ApiResponse;
+import org.example.cloudopsadmin.entity.Customer;
 import org.example.cloudopsadmin.entity.CustomerMonthlyBill;
+import org.example.cloudopsadmin.repository.CustomerRepository;
 import org.example.cloudopsadmin.service.CustomerMonthlyBillService;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,12 +20,13 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/v1/analysis")
+@RequestMapping({"/api/v1/analysis", "/api/api/v1/analysis"})
 @RequiredArgsConstructor
 @Tag(name = "Business Analysis", description = "Monthly business analysis APIs")
 public class AnalysisController {
 
     private final CustomerMonthlyBillService customerMonthlyBillService;
+    private final CustomerRepository customerRepository;
 
     @GetMapping("/monthly")
     @Operation(summary = "Get monthly business analysis", description = "Get analysis data including revenue by provider and overview")
@@ -285,6 +288,99 @@ public class AnalysisController {
         response.put("revenue_comparison", revenueComparison);
         response.put("revenue_share", revenueShare);
         response.put("details", details);
+
+        return ApiResponse.success("success", response);
+    }
+
+    @GetMapping("/customer-yearly")
+    @Operation(summary = "Get yearly analysis by customer", description = "Get yearly analysis data broken down by customer")
+    public ApiResponse<Map<String, Object>> getCustomerYearlyAnalysis(
+            @RequestParam(required = false) Integer year
+    ) {
+        int targetYear = year != null ? year : LocalDate.now().getYear();
+
+        // 1. Get all customers (The Source of Truth)
+        List<Customer> customers = customerRepository.findAll();
+        Set<String> validCustomerNames = customers.stream()
+                .map(Customer::getCustomerName)
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .collect(Collectors.toSet());
+
+        // Map for case-insensitive matching
+        Map<String, String> normalizedNameMap = new HashMap<>();
+        for (String name : validCustomerNames) {
+            normalizedNameMap.put(name.toLowerCase(), name);
+        }
+
+        // 2. Fetch bills
+        List<CustomerMonthlyBill> bills = customerMonthlyBillService.listBillsByYear(targetYear);
+
+        // 3. Aggregate data
+        Map<String, Financials> customerStats = new HashMap<>();
+        for (String customer : validCustomerNames) {
+            customerStats.put(customer, new Financials(0, 0, 0, 0));
+        }
+
+        double totalRevenueYear = 0;
+        double totalCustomerPayableYear = 0;
+        double totalCostYear = 0;
+        double totalProfitYear = 0;
+
+        for (CustomerMonthlyBill bill : bills) {
+            String rawName = bill.getCustomerName();
+            if (!StringUtils.hasText(rawName)) continue;
+
+            String normalizedKey = rawName.trim().toLowerCase();
+            String standardName = normalizedNameMap.get(normalizedKey);
+
+            if (standardName != null) {
+                Financials f = calculateFinancials(bill);
+                Financials current = customerStats.get(standardName);
+                
+                current.revenue += f.revenue;
+                current.customerPayable += f.customerPayable;
+                current.cost += f.cost;
+                current.profit += f.profit;
+
+                totalRevenueYear += f.revenue;
+                totalCustomerPayableYear += f.customerPayable;
+                totalCostYear += f.cost;
+                totalProfitYear += f.profit;
+            }
+        }
+
+        // 4. Build response list
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (String customer : validCustomerNames) {
+            Financials f = customerStats.get(customer);
+            Map<String, Object> item = new HashMap<>();
+            item.put("customer_name", customer);
+            item.put("revenue", round2(f.revenue)); // Undiscounted
+            item.put("customer_payable", round2(f.customerPayable)); // Actual Bill
+            item.put("cost", round2(f.cost));
+            item.put("profit", round2(f.profit));
+            
+            // Margin based on customer_payable (Actual Sales)
+            double margin = f.customerPayable > 0 ? (f.profit / f.customerPayable) * 100 : 0;
+            item.put("margin", round2(margin) + "%");
+            
+            list.add(item);
+        }
+        
+        // Sort by customer_payable desc
+        list.sort((a, b) -> Double.compare((Double) b.get("customer_payable"), (Double) a.get("customer_payable")));
+
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("year", targetYear);
+        summary.put("total_revenue", round2(totalRevenueYear));
+        summary.put("total_customer_payable", round2(totalCustomerPayableYear));
+        summary.put("total_cost", round2(totalCostYear));
+        summary.put("total_profit", round2(totalProfitYear));
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("summary", summary);
+        response.put("list", list);
 
         return ApiResponse.success("success", response);
     }
