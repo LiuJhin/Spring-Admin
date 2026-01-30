@@ -63,6 +63,18 @@ public class EmailController {
                  map.put("payer", payer);
             }
             
+            // Bound Accounts Info
+            List<Map<String, String>> boundAccounts = email.getAccounts().stream()
+                    .map(acc -> {
+                        Map<String, String> accMap = new HashMap<>();
+                        accMap.put("uid", acc.getUid());
+                        accMap.put("account_name", acc.getAccountName());
+                        return accMap;
+                    })
+                    .collect(Collectors.toList());
+            map.put("bound_accounts", boundAccounts);
+            map.put("is_bound", !boundAccounts.isEmpty());
+            
             // Additional info
             map.put("credit_card_last4", email.getCreditCardLast4());
             map.put("is_sp_account", email.getIsSpAccount());

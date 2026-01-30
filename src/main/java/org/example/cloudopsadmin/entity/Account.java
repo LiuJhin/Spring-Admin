@@ -6,6 +6,8 @@ import lombok.Data;
 import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
 
+import org.hibernate.annotations.GenericGenerator;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,7 +18,8 @@ import java.util.List;
 public class Account {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(generator = "eight-digit-id-gen")
+    @GenericGenerator(name = "eight-digit-id-gen", strategy = "org.example.cloudopsadmin.common.EightDigitIdGenerator")
     private Long id;
 
     @Column(name = "account_internal_id", unique = true, nullable = false)
@@ -49,6 +52,9 @@ public class Account {
     @Column(name = "account_attribution", nullable = false)
     private String accountAttribution;
 
+    @Column(name = "bd_name")
+    private String bdName;
+
     @Column(name = "is_monitored_sp", nullable = false)
     private Boolean isMonitoredSp;
 
@@ -78,6 +84,9 @@ public class Account {
 
     @Column(name = "is_submitted", nullable = false)
     private Boolean isSubmitted = false;
+
+    @Column(name = "is_new")
+    private Boolean isNew;
 
     @ElementCollection
     @CollectionTable(name = "account_labels", joinColumns = @JoinColumn(name = "account_id"))

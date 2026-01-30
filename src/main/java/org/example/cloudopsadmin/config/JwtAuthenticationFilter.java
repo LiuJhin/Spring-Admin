@@ -72,6 +72,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 log.debug("JWT invalid/expired or blacklisted. email={}, uri={}", userEmail, request.getRequestURI());
             }
         }
-        filterChain.doFilter(request, response);
+        try {
+            filterChain.doFilter(request, response);
+        } catch (Exception e) {
+            log.error("Unhandled exception in filter chain", e);
+            // 这里可以尝试手动写入 response，但通常由全局异常处理或容器处理
+            // 如果抛出异常，Spring Security 的 ExceptionTranslationFilter 可能会捕获
+            throw e; 
+        }
     }
 }

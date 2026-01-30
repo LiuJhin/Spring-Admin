@@ -2,6 +2,7 @@ package org.example.cloudopsadmin.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.GenericGenerator;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -16,7 +17,8 @@ import java.util.stream.Collectors;
 public class User implements UserDetails {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(generator = "eight-digit-id-gen")
+    @GenericGenerator(name = "eight-digit-id-gen", strategy = "org.example.cloudopsadmin.common.EightDigitIdGenerator")
     private Long id;
 
     private String name;
@@ -49,16 +51,34 @@ public class User implements UserDetails {
     )
     private List<Role> roles;
 
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "user_permissions",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "permission_id")
+    )
+    private List<Permission> permissions;
+
     // === 必须显式实现以下方法（Spring Security 6 要求）===
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        if (roles == null) return java.util.Collections.emptyList();
-        return roles.stream()
+        // Collect permissions from Roles
+        List<SimpleGrantedAuthority> authorities = roles == null ? new java.util.ArrayList<>() : roles.stream()
                 .filter(role -> role != null && role.getPermissions() != null)
                 .flatMap(role -> role.getPermissions().stream())
                 .map(permission -> new SimpleGrantedAuthority(permission.getName()))
                 .collect(Collectors.toList());
+        
+        // Collect direct permissions
+        if (permissions != null) {
+            authorities.addAll(permissions.stream()
+                    .map(permission -> new SimpleGrantedAuthority(permission.getName()))
+                    .collect(Collectors.toList()));
+        }
+        
+        // Return unique set of authorities
+        return authorities.stream().distinct().collect(Collectors.toList());
     }
 
     @Override

@@ -4,10 +4,13 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.example.cloudopsadmin.common.InvoiceStatus;
 import org.example.cloudopsadmin.entity.Invoice;
+import org.example.cloudopsadmin.entity.Customer;
 import org.example.cloudopsadmin.entity.InvoiceLineItem;
 import org.example.cloudopsadmin.entity.CustomerMonthlyBill;
 import org.example.cloudopsadmin.entity.User;
@@ -36,6 +39,7 @@ public class InvoiceService {
     private final InvoiceRepository invoiceRepository;
     private final CustomerMonthlyBillRepository customerMonthlyBillRepository;
     private final OperationLogService operationLogService;
+    private final MonthlyPaymentService monthlyPaymentService;
 
     @Transactional(readOnly = true)
     public Page<Invoice> getInvoiceList(int page, int pageSize, String search, String status, String sortBy, String sortOrder) {
@@ -45,6 +49,12 @@ public class InvoiceService {
 
         Specification<Invoice> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
+
+            // Filter: Only show invoices where customerName exists in Customer table
+            Subquery<String> customerSubquery = query.subquery(String.class);
+            Root<Customer> customerRoot = customerSubquery.from(Customer.class);
+            customerSubquery.select(customerRoot.get("customerName"));
+            predicates.add(root.get("customerName").in(customerSubquery));
 
             if (StringUtils.hasText(search)) {
                 String likePattern = "%" + search.toLowerCase() + "%";
@@ -381,6 +391,90 @@ public class InvoiceService {
     }
 
     @Transactional
+    public Invoice registerPayment(Long id, RegisterPaymentRequest request, User operator) {
+        Invoice invoice = getInvoice(id);
+        
+        // Allow payment if status is POSTED, SENT, or PARTIALLY_PAID (if exists). 
+        // Also allow updating payment details even if already PAID.
+        if (invoice.getStatus() == InvoiceStatus.DRAFT) {
+             throw new IllegalStateException("Cannot register payment for DRAFT invoice. Please post it first.");
+        }
+
+        // Update Invoice Status
+        // If amount covers the total, set to PAID. 
+        // For now, we assume if payment is registered, it's PAID unless specified otherwise, 
+        // but let's just set it to PAID as per user request "Register Payment".
+        invoice.setStatus(InvoiceStatus.PAID);
+        
+        // Update related bills
+        List<CustomerMonthlyBill> relatedBills = customerMonthlyBillRepository.findAll((root, query, cb) ->
+                cb.equal(root.get("invoiceId"), id)
+        );
+        for (CustomerMonthlyBill bill : relatedBills) {
+            bill.setInvoiceStatus(InvoiceStatus.PAID);
+            customerMonthlyBillRepository.save(bill);
+        }
+        customerMonthlyBillRepository.flush();
+
+        // Update Monthly Payment Record
+        String month = invoice.getInvoiceDate().toString().substring(0, 7); // YYYY-MM
+        monthlyPaymentService.updatePayment(
+                month,
+                invoice.getCustomerName(),
+                request.getAmount() != null ? request.getAmount() : invoice.getGrandTotal(), // Default to full amount
+                request.getPaymentMethod(),
+                request.getPaymentDate() != null ? request.getPaymentDate() : LocalDate.now(),
+                request.getRemarks()
+        );
+
+        Invoice saved = invoiceRepository.save(invoice);
+        if (operator != null) {
+            operationLogService.log(
+                    operator.getEmail(),
+                    operator.getName(),
+                    "PAYMENT",
+                    "invoice",
+                    String.valueOf(saved.getId()),
+                    "登记付款: " + saved.getCustomerName()
+            );
+        }
+        return saved;
+    }
+
+    @Transactional
+    public Invoice resetToDraft(Long id, User operator) {
+        Invoice invoice = getInvoice(id);
+        
+        if (invoice.getStatus() == InvoiceStatus.DRAFT) {
+            return invoice;
+        }
+
+        invoice.setStatus(InvoiceStatus.DRAFT);
+        
+        List<CustomerMonthlyBill> relatedBills = customerMonthlyBillRepository.findAll((root, query, cb) ->
+                cb.equal(root.get("invoiceId"), id)
+        );
+        for (CustomerMonthlyBill bill : relatedBills) {
+            bill.setInvoiceStatus(InvoiceStatus.DRAFT);
+            customerMonthlyBillRepository.save(bill);
+        }
+        customerMonthlyBillRepository.flush();
+
+        Invoice saved = invoiceRepository.save(invoice);
+        if (operator != null) {
+            operationLogService.log(
+                    operator.getEmail(),
+                    operator.getName(),
+                    "RESET",
+                    "invoice",
+                    String.valueOf(saved.getId()),
+                    "重置发票为草稿: " + saved.getCustomerName()
+            );
+        }
+        return saved;
+    }
+
+    @Transactional
     public Invoice updateInvoice(Long id, UpdateInvoiceRequest request, User operator) {
         Invoice invoice = getInvoice(id);
         if (request.getCustomerName() != null) {
@@ -566,5 +660,21 @@ public class InvoiceService {
             @JsonProperty("tax_pct")
             private Double taxPct;
         }
+    }
+
+    @Data
+    public static class RegisterPaymentRequest {
+        @JsonProperty("amount")
+        private Double amount;
+        
+        @JsonProperty("payment_method")
+        private String paymentMethod;
+        
+        @JsonProperty("payment_date")
+        @JsonFormat(pattern = "yyyy-MM-dd")
+        private LocalDate paymentDate;
+        
+        @JsonProperty("remarks")
+        private String remarks;
     }
 }

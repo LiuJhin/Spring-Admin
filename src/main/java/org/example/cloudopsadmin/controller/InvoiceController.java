@@ -147,6 +147,38 @@ public class InvoiceController {
         }
     }
 
+    @PostMapping("/{id}/payment")
+    @Operation(summary = "登记付款", description = "登记发票付款信息，并更新发票状态为已付款")
+    public ApiResponse<Map<String, Object>> registerPayment(@PathVariable Long id, @RequestBody InvoiceService.RegisterPaymentRequest request) {
+        try {
+            User operator = (User) org.springframework.security.core.context.SecurityContextHolder.getContext()
+                    .getAuthentication().getPrincipal();
+            Invoice paid = invoiceService.registerPayment(id, request, operator);
+            return ApiResponse.success("success", toResponse(paid));
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.error(404, e.getMessage());
+        } catch (Exception e) {
+            log.error("Register payment failed", e);
+            return ApiResponse.error(500, "Internal Server Error: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/{id}/reset")
+    @Operation(summary = "重置为草稿", description = "将发票状态重置为草稿")
+    public ApiResponse<Map<String, Object>> resetToDraft(@PathVariable Long id) {
+        try {
+            User operator = (User) org.springframework.security.core.context.SecurityContextHolder.getContext()
+                    .getAuthentication().getPrincipal();
+            Invoice reset = invoiceService.resetToDraft(id, operator);
+            return ApiResponse.success("success", toResponse(reset));
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.error(404, e.getMessage());
+        } catch (Exception e) {
+            log.error("Reset invoice failed", e);
+            return ApiResponse.error(500, "Internal Server Error: " + e.getMessage());
+        }
+    }
+
     @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
     public ApiResponse<Object> handleHttpMessageNotReadableException(org.springframework.http.converter.HttpMessageNotReadableException e) {
         log.error("JSON parse error", e);

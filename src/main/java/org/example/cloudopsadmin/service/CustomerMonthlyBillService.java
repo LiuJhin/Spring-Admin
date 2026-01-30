@@ -46,6 +46,9 @@ public class CustomerMonthlyBillService {
         Specification<CustomerMonthlyBill> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
+            // Join with account to ensure we only display bills for existing accounts
+            root.join("account");
+
             if (StringUtils.hasText(customerName)) {
                 predicates.add(cb.like(root.get("customerName"), "%" + customerName.trim() + "%"));
             }
@@ -72,12 +75,73 @@ public class CustomerMonthlyBillService {
                     cb.equal(root.get("month"), month),
                     cb.equal(root.get("linkedAccountUid"), uid)
             ));
+            
             if (existing.isPresent()) {
+                CustomerMonthlyBill bill = existing.get();
+                // Only sync if not invoiced/finalized, OR if the vendor is invalid (fix dirty data)
+                boolean isInvalidVendor = "Customer Account".equals(bill.getCloudVendor());
+                if (!Boolean.TRUE.equals(bill.getIsInvoiced()) || isInvalidVendor) {
+                    boolean changed = false;
+                    
+                    // Sync Cloud Vendor using accountCategory (which stores Vendor) instead of accountType (which stores Category)
+                    // Also handle the case where we need to fix "Customer Account" -> "AWS" (or actual vendor)
+                    String normalizedVendor = normalizeCloudVendor(account.getAccountCategory());
+                    
+                    // Fallback to accountType if accountCategory is empty, just in case
+                    if ("AWS".equals(normalizedVendor) && !StringUtils.hasText(account.getAccountCategory())) {
+                        normalizedVendor = normalizeCloudVendor(account.getAccountType());
+                    }
+
+                    if (!normalizedVendor.equals(bill.getCloudVendor())) {
+                        bill.setCloudVendor(normalizedVendor);
+                        changed = true;
+                    }
+
+                    // Sync Customer Name
+                    Customer customer = account.getCustomer();
+                    String currentCustomerName = (customer != null && StringUtils.hasText(customer.getCustomerName()))
+                            ? customer.getCustomerName()
+                            : account.getAccountName();
+                    
+                    if (!currentCustomerName.equals(bill.getCustomerName())) {
+                        bill.setCustomerName(currentCustomerName);
+                        changed = true;
+                    }
+                    
+                    // Sync Account Reference if missing
+                    if (bill.getAccount() == null) {
+                        bill.setAccount(account);
+                        changed = true;
+                    }
+                    
+                    // Sync Customer Reference
+                    if (bill.getCustomer() != customer) { // Reference check is okay for managed entities, but maybe ID check is safer
+                         // Ideally check IDs or nulls
+                         Long oldCustId = bill.getCustomer() == null ? null : bill.getCustomer().getId();
+                         Long newCustId = customer == null ? null : customer.getId();
+                         if (oldCustId != null && !oldCustId.equals(newCustId) || (oldCustId == null && newCustId != null)) {
+                             bill.setCustomer(customer);
+                             changed = true;
+                         }
+                    }
+
+                    if (changed) {
+                        customerMonthlyBillRepository.save(bill);
+                    }
+                }
                 continue;
             }
+            
             CustomerMonthlyBill bill = new CustomerMonthlyBill();
             bill.setMonth(month);
-            bill.setCloudVendor(account.getAccountType());
+            
+            // Use accountCategory for Vendor
+            String normalizedVendor = normalizeCloudVendor(account.getAccountCategory());
+            if ("AWS".equals(normalizedVendor) && !StringUtils.hasText(account.getAccountCategory())) {
+                normalizedVendor = normalizeCloudVendor(account.getAccountType());
+            }
+            bill.setCloudVendor(normalizedVendor);
+            
             Customer customer = account.getCustomer();
             String customerName = (customer != null && org.springframework.util.StringUtils.hasText(customer.getCustomerName()))
                     ? customer.getCustomerName()
@@ -114,6 +178,10 @@ public class CustomerMonthlyBillService {
         ensureMonthRecords(targetMonth);
         Specification<CustomerMonthlyBill> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
+            // Ensure we join account here too? Maybe not necessary for all lists, but for consistency let's do it if it's for display.
+            // But this method seems to be used for export or internal logic.
+            // Let's keep it simple and only modify the main list method unless requested.
+            
             if (StringUtils.hasText(targetMonth)) {
                 predicates.add(cb.equal(root.get("month"), targetMonth));
             }
@@ -149,5 +217,22 @@ public class CustomerMonthlyBillService {
         if (profit != null) bill.setProfit(profit);
 
         return customerMonthlyBillRepository.save(bill);
+    }
+
+    private String normalizeCloudVendor(String accountType) {
+        if (!StringUtils.hasText(accountType)) {
+            return "AWS"; // Default to AWS if empty
+        }
+        String lower = accountType.toLowerCase();
+        if (lower.contains("ali")) {
+            return "Ali";
+        }
+        if (lower.contains("azure")) {
+            return "Azure";
+        }
+        if (lower.contains("aws")) {
+            return "AWS";
+        }
+        return "AWS"; // Default fallback
     }
 }

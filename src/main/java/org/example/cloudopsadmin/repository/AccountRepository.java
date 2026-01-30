@@ -17,4 +17,10 @@ public interface AccountRepository extends JpaRepository<Account, Long>, JpaSpec
 
     @Query("SELECT a.accountInternalId FROM Account a WHERE a.accountInternalId LIKE :pattern ORDER BY a.accountInternalId DESC LIMIT 1")
     Optional<String> findLastAccountInternalId(@Param("pattern") String pattern);
+
+    int countByBoundCreditCardMasked(String boundCreditCardMasked);
+
+    boolean existsByLinkedEmail(org.example.cloudopsadmin.entity.Email linkedEmail);
+
+    boolean existsByLinkedEmailAndUidNot(org.example.cloudopsadmin.entity.Email linkedEmail, String uid);
 }

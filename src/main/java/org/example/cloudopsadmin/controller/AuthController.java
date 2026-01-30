@@ -3,6 +3,7 @@ package org.example.cloudopsadmin.controller;
 import org.example.cloudopsadmin.common.ApiResponse;
 import org.example.cloudopsadmin.entity.User;
 import org.example.cloudopsadmin.repository.UserRepository;
+import org.example.cloudopsadmin.service.AliyunStorageService;
 import org.example.cloudopsadmin.service.JwtService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -16,11 +17,13 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final JwtService jwtService;
+    private final AliyunStorageService storageService;
     private final BCryptPasswordEncoder passwordEncoder;
 
-    public AuthController(UserRepository userRepository, JwtService jwtService) {
+    public AuthController(UserRepository userRepository, JwtService jwtService, AliyunStorageService storageService) {
         this.userRepository = userRepository;
         this.jwtService = jwtService;
+        this.storageService = storageService;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
 
@@ -41,7 +44,7 @@ public class AuthController {
         userData.put("name", user.getName());
         userData.put("role", user.getRoles().isEmpty() ? "user" : user.getRoles().get(0).getName().toLowerCase());
         userData.put("status", user.getStatus().toString().toLowerCase());
-        userData.put("avatar", user.getAvatar());
+        userData.put("avatar", storageService.generatePresignedUrl(user.getAvatar()));
         userData.put("createdAt", user.getCreatedAt());
 
         Map<String, Object> data = new HashMap<>();
